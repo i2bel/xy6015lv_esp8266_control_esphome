@@ -1,7 +1,7 @@
 substitutions:
   devicename: xy6015lv-2
   friendly_name: xy6015lv-2
-  device_description: XY6015LV блок питания N2
+  device_description: Power supply N2
   tx_pin: "GPIO5"
   rx_pin: "GPIO4"
 
@@ -25,6 +25,7 @@ ota:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  min_auth_mode: WPA2
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
@@ -66,7 +67,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: input_voltage
-    name: "${devicename} Input Voltage"
+    name: "Input Voltage"
     register_type: holding
     address: 5
     value_type: U_WORD
@@ -79,7 +80,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: output_voltage
-    name: "${devicename} Output Voltage"
+    name: "Output Voltage"
     register_type: holding
     address: 2
     value_type: U_WORD
@@ -92,7 +93,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: input_current
-    name: "${devicename} Output Ah"
+    name: "Output Ah"
     register_type: holding
     address: 6
     value_type: U_WORD
@@ -105,7 +106,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: output_current
-    name: "${devicename} Output Current"
+    name: "Output Current"
     register_type: holding
     address: 3
     value_type: U_WORD
@@ -120,7 +121,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: output_power
-    name: "${devicename} Output Power"
+    name: "Output Power"
     register_type: holding
     address: 4
     value_type: U_WORD
@@ -133,7 +134,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: temperature
-    name: "${devicename} Temperature"
+    name: "Temperature"
     register_type: holding
     address: 13
     value_type: U_WORD
@@ -143,11 +144,25 @@ sensor:
     filters:
       - multiply: 0.1
 
+  - platform: modbus_controller
+    modbus_controller_id: xy_hub
+    id: external_temperature
+    name: "Temperature External"
+    register_type: holding
+    address: 14  # <-- **Возможно, этот адрес**
+    value_type: U_WORD
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    register_count: 1
+    filters:
+      - multiply: 0.1
+  
+  
   # Счетчики энергии (READ-ONLY, адреса 8-11) - 32-bit
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: output_ah_low
-    name: "${devicename} Output Ah (Low)"
+    name: "Output Ah (Low)"
     register_type: holding
     address: 8  # AH-LOW (Read-only)
     value_type: U_WORD
@@ -159,7 +174,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: output_ah_high
-    name: "${devicename} Output Ah (High)"
+    name: "Output Ah (High)"
     register_type: holding
     address: 9  # AH-HIGH (Read-only)
     value_type: U_WORD
@@ -169,7 +184,7 @@ sensor:
     register_count: 1
 
   - platform: template
-    name: "${devicename} Output Wh"
+    name: "Output Wh"
     unit_of_measurement: "Wh"
     accuracy_decimals: 3
     lambda: |-
@@ -180,7 +195,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: output_time_low
-    name: "${devicename} Output time (H)"
+    name: "Output time (H)"
     register_type: holding
     address: 10  # Output time hours (Read-only)
     value_type: U_WORD
@@ -192,7 +207,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: output_time_high
-    name: "${devicename} Output time (min)"
+    name: "Output time (min)"
     register_type: holding
     address: 11  # Out time minutes (Read-only)
     value_type: U_WORD
@@ -202,7 +217,7 @@ sensor:
     register_count: 1
 
   - platform: template
-    name: "${devicename} Output time"
+    name: "Output time"
     unit_of_measurement: "min"
     #accuracy_decimals: 0
     lambda: |-
@@ -215,7 +230,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: read_oah_low
-    name: "${devicename} S-OAH Low"
+    name: "S-OAH Low"
     register_type: holding
     address: 88  # S-OAH_L
     value_type: U_WORD
@@ -225,7 +240,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: read_oah_high
-    name: "${devicename} S-OAH High"
+    name: "S-OAH High"
     register_type: holding
     address: 89  # S-OAH_H
     value_type: U_WORD
@@ -234,18 +249,18 @@ sensor:
 
   - platform: template
     id: current_oah_setting
-    name: "${devicename} Current Max Charge Setting"
+    name: "Current Max Charge Setting"
     unit_of_measurement: "Ah"
     accuracy_decimals: 2
     lambda: |-
       uint32_t value = ((uint32_t)id(read_oah_high).state * 65536) + (uint32_t)id(read_oah_low).state;
-      return value / 100.0;  // Äåëèòåëü 100 äëÿ äèàïàçîíà 0-99.99
+      return value / 100.0;  // Делитель 100 для диапазона 0-99.99
     update_interval: 5s
     on_value:
       then:
         - lambda: |-
-            // Îáíîâëÿåì number òîëüêî åñëè çíà÷åíèå èçìåíèëîñü
-            if (id(set_oah).state != x) {
+            // Обновляем number только если значение изменилось
+              if (id(set_oah).state != x) {
               auto call = id(set_oah).make_call();
               call.set_value(x);
               call.perform();
@@ -256,7 +271,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: read_owh_low
-    name: "${devicename} S-OWH Low"
+    name: "S-OWH Low"
     register_type: holding
     address: 90  # S-OWH_L
     value_type: U_WORD
@@ -266,7 +281,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: read_owh_high
-    name: "${devicename} S-OWH High"
+    name: "S-OWH High"
     register_type: holding
     address: 91  # S-OWH_H
     value_type: U_WORD
@@ -275,7 +290,7 @@ sensor:
 
   - platform: template
     id: current_owh_setting
-    name: "${devicename} Current Max Energy Setting"
+    name: "Current Max Energy Setting"
     unit_of_measurement: "Wh"
     accuracy_decimals: 1
     lambda: |-
@@ -295,7 +310,7 @@ sensor:
   
 
   - platform: wifi_signal
-    name: ${friendly_name}_wifi_signal
+    name: "WiFi signal"
     update_interval: 60s
     id: wifi_signal_id
 
@@ -303,7 +318,7 @@ number:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: set_output_voltage
-    name: "${devicename} Set Output Voltage"
+    name: "Set Output Voltage"
     min_value: 0
     max_value: 60
     step: 0.01
@@ -315,7 +330,7 @@ number:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: set_output_current
-    name: "${devicename} Set Output Current"
+    name: "Set Output Current"
     min_value: 0
     max_value: 16
     step: 0.01
@@ -328,7 +343,7 @@ number:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: set_output_ovp
-    name: "${devicename} Set Output OVP (Max Voltage)"
+    name: "Set Output OVP (Max Voltage)"
     min_value: 0
     max_value: 65
     step: 0.01
@@ -341,7 +356,7 @@ number:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: set_output_ocp
-    name: "${devicename} Set Output OCP (Max Current)"
+    name: "Set Output OCP (Max Current)"
     min_value: 0
     max_value: 22
     step: 0.01
@@ -354,7 +369,7 @@ number:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: set_output_opp
-    name: "${devicename} Set Output OPP (Max Power)"
+    name: "Set Output OPP (Max Power)"
     min_value: 0
     max_value: 1300
     step: 1
@@ -367,7 +382,7 @@ number:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: set_max_temperature
-    name: "${devicename} Set Max Temperature (OTP)"
+    name: "Set Max Temperature (OTP)"
     min_value: 60
     max_value: 110
     step: 1
@@ -377,13 +392,26 @@ number:
     value_type: U_WORD
     multiply: 1
 
+  - platform: modbus_controller
+    modbus_controller_id: xy_hub
+    id: set_max_temperature_external
+    name: "Set Max Temperature External (ETP)"
+    min_value: 60
+    max_value: 110
+    step: 1
+    unit_of_measurement: "°C"
+    icon: "mdi:thermometer-alert"
+    address: 94
+    value_type: U_WORD
+    multiply: 1
+
  
 
   # Защита по энергии (OAH) - 32-bit регистры 88-89
   # Диапазон LCD: 0-99.99 Ah, делитель 100
   - platform: template
     id: set_oah
-    name: "${devicename} Set Max Charge (Ah)"
+    name: "Set Max Charge (Ah)"
     min_value: 0
     max_value: 99.99
     step: 0.01
@@ -409,7 +437,7 @@ number:
   # Диапазон LCD: 0-999.9 Wh, делитель 10
   - platform: template
     id: set_owh
-    name: "${devicename} Set Max Energy (Wh)"
+    name: "Set Max Energy (Wh)"
     min_value: 0
     max_value: 999.9
     step: 0.01
@@ -434,7 +462,7 @@ number:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: protection_register
-    name: "${devicename} Protection Register"
+    name: "Protection Register"
     min_value: 0
     max_value: 255
     step: 1
@@ -447,7 +475,7 @@ binary_sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: output_status
-    name: "${devicename} Output"
+    name: "Output"
     register_type: holding
     address: 18
     bitmask: 0x1
@@ -456,7 +484,7 @@ binary_sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: key_lock
-    name: "${devicename} Key Lock"
+    name: "Key Lock"
     register_type: holding
     address: 15
     bitmask: 0x1
@@ -465,7 +493,7 @@ binary_sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: constant_current_mode
-    name: "${devicename} Constant Current Mode"
+    name: "Constant Current Mode"
     register_type: holding
     address: 17
     bitmask: 0x1
@@ -474,7 +502,7 @@ binary_sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: over_voltage_protection
-    name: "${devicename} Over Voltage Protection"
+    name: "Over Voltage Protection"
     register_type: holding
     address: 16
     bitmask: 0x01
@@ -483,7 +511,7 @@ binary_sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: over_current_protection
-    name: "${devicename} Over Current Protection"
+    name: "Over Current Protection"
     register_type: holding
     address: 16
     bitmask: 0x02
@@ -492,7 +520,7 @@ binary_sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: over_power_protection
-    name: "${devicename} Over Power Protection"
+    name: "Over Power Protection"
     register_type: holding
     address: 16
     bitmask: 0x04
@@ -501,7 +529,7 @@ binary_sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: over_temperature_protection
-    name: "${devicename} Over Temperature Protection"
+    name: "Over Temperature Protection"
     register_type: holding
     address: 16
     bitmask: 0x80
@@ -510,7 +538,7 @@ binary_sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: over_ah_protection
-    name: "${devicename} Over Ah Protection (OAH)"
+    name: "Over Ah Protection (OAH)"
     register_type: holding
     address: 16
     bitmask: 0x10
@@ -521,20 +549,20 @@ binary_sensor:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: over_wh_protection
-    name: "${devicename} Over Wh Protection (OWH)"
+    name: "Over Wh Protection (OWH)"
     register_type: holding
     address: 16
     bitmask: 0x40
     device_class: problem
 
   - platform: status
-    name: "${devicename} API Status"
+    name: "API Status"
 
 switch:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: output_switch
-    name: "${devicename} Output Switch"
+    name: "Output Switch"
     register_type: holding
     address: 18
     bitmask: 1
@@ -543,7 +571,7 @@ switch:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
     id: key_lock_switch
-    name: "${devicename} Key Lock Switch"
+    name: "Key Lock Switch"
     register_type: holding
     address: 15
     bitmask: 1
@@ -551,14 +579,14 @@ switch:
 
 button:
   - platform: restart
-    name: ${friendly_name} Node restart
+    name: "Restart"
 
  
 
 select:
   - platform: modbus_controller
     modbus_controller_id: xy_hub
-    name: "${devicename} Load Memory Preset"
+    name: "Load Memory Preset"
     address: 29
     value_type: U_WORD
     optionsmap:
@@ -573,7 +601,5 @@ select:
       "M8": 8
       "M9": 9
     icon: "mdi:database"
-
-
 
 
